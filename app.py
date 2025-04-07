@@ -643,69 +643,130 @@ def view_jobs_tab():
                             st.success("Application submitted successfully!")
                             st.rerun()
 
-# Update main function with role-based navigation
-def main():
+import streamlit as st
+import pyrebase
+import os
+
+# 🔐 Firebase Config
+firebaseConfig = {
+    "apiKey": "AIzaSyB6lyYYkfEwfG_kYVBQwMEkQguvOXLGaGE",
+    "databaseURL": "https://dummy.firebaseio.com",
+    "authDomain": "ids-dp.firebaseapp.com",
+    "projectId": "ids-dp",
+    "storageBucket": "ids-dp.firebasestorage.app",
+    "messagingSenderId": "1071160248880",
+    "appId": "1:1071160248880:web:c5cc0d68a7bd11f9b07bf5",
+    "measurementId": "G-4KGW8QMLEJ"
+    
+
+
+}
+
+firebase = pyrebase.initialize_app(firebaseConfig)
+auth = firebase.auth()
+
+
+# 🔁 Session init
+def initialize_session_state():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = ""
+    if "api_key" not in st.session_state:
+        st.session_state.api_key = ""
+    if "user_role" not in st.session_state:
+        st.session_state.user_role = ""
+
+
+# 🔐 Authentication
+def login_page():
+    st.title("🔐 Login")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        try:
+            auth.sign_in_with_email_and_password(email, password)
+            st.session_state.logged_in = True
+            st.session_state.user_email = email
+            st.success("Login successful!")
+        except Exception as e:
+            st.error("Login failed. Please check your credentials.")
+
+    st.markdown("Don't have an account? [Register here](#register)")
+
+
+def register_page():
+    st.title("📝 Register")
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
+    confirm = st.text_input("Confirm Password", type="password")
+
+    if password != confirm:
+        st.warning("Passwords do not match.")
+
+    if st.button("Register"):
+        try:
+            auth.create_user_with_email_and_password(email, password)
+            st.success("Registration successful! You can now log in.")
+        except Exception as e:
+            st.error("Registration failed. Email might be already in use.")
+
+
+# 🔄 Main App Logic (after login)
+def main_app():
     st.set_page_config(
-        page_title="RecruSync | Quantum Ninjas",
+        page_title="RecruSync",
         layout="wide",
         initial_sidebar_state="expanded",
         menu_items={
-            'Get Help': 'https://github.com/yourusername/IbmIceHacks2024',
-            'Report a bug': "https://github.com/yourusername/IbmIceHacks2024/issues",
             'About': """
             # RecruSync
-            ### By Quantum Ninjas 🥷
-            
-            Built for IBM ICE HACKATHON 2024
             
             RecruSync is your AI-powered career companion, stealthily navigating you through 
             the job market with ninja-like precision. From resume optimization to career strategy, 
             we're here to help you master the art of professional success.
-            
-            Made with ❤️ by Team Quantum Ninjas
+
+            Made with ❤️ by Guna
             """
         }
     )
-    
+
     initialize_session_state()
-    
-    # Improved sidebar branding
+
+    # Sidebar UI
     with st.sidebar:
         col1, col2 = st.columns([1, 4])
         with col1:
-            st.write("# 🥷")  
+            st.write("# 🥷")
         with col2:
             st.title("RecruSync")
-        
-        st.markdown("""
-        #### Quantum Ninjas - HITS,Chennai 
-        *Quantum Leaping Your Career*
-        """)
+
+        st.markdown("#### RecruSync - HCAS, Chennai\n*Quantum Leaping Your Career*")
         st.divider()
-        
-        # Rest of sidebar content
+
         api_key = st.text_input(
-            "Google API Key:", 
+            "Google API Key:",
             type="password",
-            help="🔑 Get your API key from Google AI Studio (makersuite.google.com/app/apikey)"
+            help="🔑 Get your API key from makersuite.google.com/app/apikey"
         )
         if api_key:
             st.session_state.api_key = api_key
             os.environ["GOOGLE_API_KEY"] = api_key
-        
+
         st.divider()
-        
-        # Role selection with better UX
-        user_role = st.radio(
-            "I am a:",
-            ["Student", "Recruiter"],
-            help="Choose your role to see relevant features"
-        )
-        
+
+        # Only let role selection if not already chosen
+        if not st.session_state.user_role:
+            user_role = st.radio("I am a:", ["Student", "Recruiter"])
+            st.session_state.user_role = user_role
+        else:
+            st.info(f"👋 Logged in as: {st.session_state.user_role}")
+
         st.divider()
-        
-        # Navigation menu with icons
-        if user_role == "Student":
+
+        # Navigation Menu
+        if st.session_state.user_role == "Student":
             pages = {
                 "Dashboard": "🏠",
                 "Profile": "👤",
@@ -719,43 +780,63 @@ def main():
                 "Jobs": "📋",
                 "Candidates": "👥"
             }
-        
-        page = st.radio(
-            "Navigation",
-            list(pages.keys()),
-            format_func=lambda x: f"{pages[x]} {x}"
-        )
-        
-        # Add version info
-        st.divider()
-        st.caption("v1.0.0 | IBM ICE HACKATHON 2024")
-        st.caption("By Team Quantum Ninjas 🥷")
 
-    # Better API key messaging
+        page = st.radio("Navigation", list(pages.keys()), format_func=lambda x: f"{pages[x]} {x}")
+
+        st.divider()
+        if st.button("Logout"):
+            st.session_state.logged_in = False
+            st.session_state.user_email = ""
+            st.session_state.user_role = ""
+            st.success("Logged out successfully.")
+            st.stop()
+
+    # API Key Check
     if not st.session_state.api_key:
         st.error("⚠️ API Key Required")
         st.warning(
-            "To use RecruSync, you need a Google API key. Get one for free at "
+            "To use RecruSync, you need a Google API key. Get one at "
             "[Google AI Studio](https://makersuite.google.com/app/apikey)"
         )
         return
 
-    # Page routing
-    if user_role == "Student":
+    # Page Routing
+    role = st.session_state.user_role
+    page = page
+
+    if role == "Student":
         if page == "Dashboard":
-            student_dashboard(api_key)
+            st.write("🎓 Student Dashboard (replace with your function)")
         elif page == "Profile":
-            manage_user_profile()
+            st.write("🙋‍♂️ Profile Page (replace with manage_user_profile())")
         elif page == "Resume":
-            resume_analysis_tab(api_key)
+            st.write("📄 Resume Analyzer (replace with resume_analysis_tab(api_key))")
         elif page == "Jobs":
-            view_jobs_tab()
+            st.write("💼 Jobs for Students (replace with view_jobs_tab())")
         elif page == "Mentor":
-            career_mentor_chat(api_key)
+            st.write("🧠 AI Mentor Chat (replace with career_mentor_chat(api_key))")
     else:
         if page == "Dashboard":
-            recruiter_dashboard(api_key)
-        # ... rest of recruiter pages
+            st.write("📊 Recruiter Dashboard (replace with recruiter_dashboard(api_key))")
+        elif page == "Jobs":
+            st.write("📋 Job Posting (add your recruiter logic)")
+        elif page == "Candidates":
+            st.write("👥 Candidates View (add your recruiter logic)")
+
+
+# 🎬 Entry Point
+def main():
+    initialize_session_state()
+
+    if not st.session_state.logged_in:
+        auth_option = st.sidebar.radio("Authentication", ["Login", "Register"])
+        if auth_option == "Login":
+            login_page()
+        else:
+            register_page()
+    else:
+        main_app()
+
 
 if __name__ == "__main__":
     main()
