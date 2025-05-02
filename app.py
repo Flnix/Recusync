@@ -727,7 +727,7 @@ def main_app():
             the job market with ninja-like precision. From resume optimization to career strategy, 
             we're here to help you master the art of professional success.
 
-            Made with ❤️ by Guna
+            Made with ❤️ by Flnix007
             """
         }
     )
